@@ -3,11 +3,16 @@ on: [push, pull_request]
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: local-ci-only-not-for-production-please-replace
+      DATABASE_URL: postgresql://patana:patana@localhost:5432/patana?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
       - run: npm install
+      - run: npx prisma validate --schema patana-api/prisma/schema.prisma
       - run: npm run typecheck
       - run: npm run build

@@ -1,0 +1,17 @@
+{
+  "name": "patana",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "patana-api"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:customer": "npm run dev -w @patana/customer",
+    "dev:owner": "npm run dev -w @patana/owner",
+    "dev:api": "npm run start:dev -w @patana/api"
+  }
+}

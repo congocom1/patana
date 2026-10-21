@@ -1,0 +1,105 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") schemas = ["shared", "catalog", "booking", "checkout"] }
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ email String @unique
+ fullName String
+ phone String?
+ role String @default("customer")
+ owner Owner?
+ customer Customer?
+ notifications Notification[]
+ @@schema("shared")
+}
+model Owner {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId], references:[id])
+ businessName String
+ verificationStatus String @default("pending")
+ properties Property[]
+ @@schema("catalog")
+}
+model Customer {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ preferredLanguage String @default("en")
+ loyaltyPoints Int @default(0)
+ bookings Booking[]
+ @@schema("booking")
+}
+model Property {
+ id String @id @default(uuid()) @db.Uuid
+ ownerId String @db.Uuid
+ owner Owner @relation(fields:[ownerId],references:[id])
+ type String
+ name String
+ city String
+ address String
+ description String?
+ imageUrl String?
+ units Unit[]
+ @@index([city])
+ @@schema("catalog")
+}
+model Unit {
+ id String @id @default(uuid()) @db.Uuid
+ propertyId String @db.Uuid
+ property Property @relation(fields:[propertyId],references:[id])
+ name String
+ capacity Int
+ pricePerNight Decimal @db.Decimal(12,2)
+ status String @default("active")
+ availability Availability[]
+ bookings Booking[]
+ @@schema("catalog")
+}
+model Availability {
+ id String @id @default(uuid()) @db.Uuid
+ unitId String @db.Uuid
+ unit Unit @relation(fields:[unitId],references:[id])
+ date DateTime @db.Date
+ isAvailable Boolean @default(true)
+ priceOverride Decimal? @db.Decimal(12,2)
+ @@unique([unitId,date])
+ @@schema("booking")
+}
+model Booking {
+ id String @id @default(uuid()) @db.Uuid
+ customerId String @db.Uuid
+ customer Customer @relation(fields:[customerId],references:[id])
+ unitId String @db.Uuid
+ unit Unit @relation(fields:[unitId],references:[id])
+ checkIn DateTime @db.Date
+ checkOut DateTime @db.Date
+ guests Int
+ status String @default("pending")
+ totalPrice Decimal @db.Decimal(12,2)
+ payments Payment[]
+ createdAt DateTime @default(now())
+ @@index([unitId,checkIn,checkOut])
+ @@schema("booking")
+}
+model Payment {
+ id String @id @default(uuid()) @db.Uuid
+ bookingId String @db.Uuid
+ booking Booking @relation(fields:[bookingId],references:[id])
+ amount Decimal @db.Decimal(12,2)
+ method String
+ providerReference String? @unique
+ status String @default("pending")
+ paidAt DateTime?
+ @@schema("checkout")
+}
+model Notification {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ type String
+ title String
+ message String
+ isRead Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@schema("shared")
+}

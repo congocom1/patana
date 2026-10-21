@@ -12,6 +12,9 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-dev-password-only
+      JWT_SECRET: ci-testing-secret-not-for-production-at-all
     steps:
       - uses: actions/checkout@v4
       - name: Validate Compose configuration

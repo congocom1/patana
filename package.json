@@ -13,5 +13,8 @@
     "dev:customer": "npm run dev -w @patana/customer",
     "dev:owner": "npm run dev -w @patana/owner",
     "dev:api": "npm run start:dev -w @patana/api"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
   }
 }

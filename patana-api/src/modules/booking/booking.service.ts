@@ -1,6 +1,6 @@
 import {BadRequestException,ConflictException,Injectable,NotFoundException} from '@nestjs/common';
 import {PrismaService} from '../shared/prisma.service';
-import {Prisma,PrismaClient} from '@prisma/client';
+import {Prisma} from '@prisma/client';
 import {z} from 'zod';
 const request=z.object({unitId:z.string().uuid(),checkIn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),checkOut:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),guests:z.number().int().min(1).max(100)}).strict();
 const day=(s:string)=>new Date(s+'T00:00:00.000Z');
@@ -12,7 +12,7 @@ const dateKey=(d:Date)=>d.toISOString().slice(0,10);
  if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||dateKey(start)!==checkIn||dateKey(end)!==checkOut||start<day(new Date().toISOString().slice(0,10))||nights<1||nights>365)throw new BadRequestException('Select a valid future stay between 1 and 365 nights');
  return this.db.$transaction(async tx=>{
  // Advisory transaction lock serializes booking attempts for the same unit across API instances.
- await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${unitId}::text, 0))`;
+ await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${unitId}::text, 0))`;
  const unit=await tx.unit.findUnique({where:{id:unitId}});
  if(!unit||unit.status!=='active')throw new NotFoundException('Unit unavailable');
  if(guests>unit.capacity)throw new BadRequestException('Too many guests');

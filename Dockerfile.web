@@ -1,0 +1,26 @@
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+COPY apps/customer/package.json apps/customer/package.json
+COPY apps/owner/package.json apps/owner/package.json
+COPY packages/types/package.json packages/types/package.json
+COPY packages/api-client/package.json packages/api-client/package.json
+COPY packages/ui/package.json packages/ui/package.json
+COPY packages/theme/package.json packages/theme/package.json
+COPY packages/validation/package.json packages/validation/package.json
+COPY patana-api/package.json patana-api/package.json
+RUN npm install --no-audit
+COPY . .
+ARG WEB_APP=customer
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+RUN test "$WEB_APP" = "customer" || test "$WEB_APP" = "owner"
+RUN npm run build -w @patana/${WEB_APP}
+
+FROM nginx:1.27-alpine
+RUN rm /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+ARG WEB_APP=customer
+COPY --from=build /app/apps/${WEB_APP}/dist/ /usr/share/nginx/html/
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1

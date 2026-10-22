@@ -8,6 +8,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run typecheck
+      - run: npm run test --if-present
       - run: npm run build

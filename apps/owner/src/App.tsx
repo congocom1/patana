@@ -1,9 +1,49 @@
-import {useState} from 'react';
-import {QueryClient,QueryClientProvider,useQuery} from '@tanstack/react-query';
-import {PatanaApi} from '@patana/api-client';
-const api=new PatanaApi();const qc=new QueryClient();
-function Owner(){const [token,setToken]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[business,setBusiness]=useState(''),[name,setName]=useState(''),[city,setCity]=useState(''),[address,setAddress]=useState(''),[kind,setKind]=useState('apartment'),[propertyId,setPropertyId]=useState(''),[unitName,setUnitName]=useState(''),[capacity,setCapacity]=useState(2),[rate,setRate]=useState(100),[notice,setNotice]=useState('');
-const profile=useQuery({queryKey:['owner',token],queryFn:()=>api.owner(token),enabled:!!token}),properties=useQuery({queryKey:['properties',token],queryFn:()=>api.myProperties(token),enabled:!!token&&!!profile.data}),bookings=useQuery({queryKey:['ownerBookings',token],queryFn:()=>api.ownerBookings(token),enabled:!!token&&!!profile.data});
-async function invoke(fn:()=>Promise<unknown>){setNotice('');try{await fn();setNotice('Saved successfully.');await qc.invalidateQueries()}catch(e){setNotice(e instanceof Error?e.message:'Request failed')}}
-return <><header>✳ Patana · Owner</header><main><span className="tag">OWNER WORKSPACE</span><h1>Your place. Your business.</h1><p>List properties, manage room rates and review incoming requests.</p>{!token?<form className="card auth" onSubmit={e=>{e.preventDefault();void invoke(async()=>{const r=await api.login(email,password);setToken(r.accessToken)})}}><h2>Host sign in</h2><input required type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/><input required type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)}/><button>Sign in</button><small>Create a customer account in the customer app first, then register a host profile here.</small></form>:<><button onClick={()=>{setToken('');qc.clear()}}>Sign out</button>{profile.isLoading?<p>Loading host profile…</p>:profile.isError?<p>Could not load profile.</p>:!profile.data?<form className="card" onSubmit={e=>{e.preventDefault();void invoke(()=>api.registerOwner(token,business))}}><h2>Become a host</h2><input required value={business} onChange={e=>setBusiness(e.target.value)} placeholder="Business name"/><button>Create host profile</button></form>:<><div className="grid"><div className="card"><h2>{profile.data.businessName}</h2><p>Verification: {profile.data.verificationStatus}</p><p>{properties.data?.length||0} properties</p></div><div className="card"><h2>{bookings.data?.length||0}</h2><p>Incoming reservations</p></div></div><section className="grid"><form className="card" onSubmit={e=>{e.preventDefault();void invoke(()=>api.createProperty(token,{name,city,address,type:kind}))}}><h2>Add property</h2><input required value={name} onChange={e=>setName(e.target.value)} placeholder="Property name"/><input required value={city} onChange={e=>setCity(e.target.value)} placeholder="City"/><input required value={address} onChange={e=>setAddress(e.target.value)} placeholder="Address"/><select value={kind} onChange={e=>setKind(e.target.value)}><option value="apartment">Apartment</option><option value="hotel">Hotel</option></select><button>Save property</button></form><form className="card" onSubmit={e=>{e.preventDefault();void invoke(()=>api.createUnit(token,{propertyId,name:unitName,capacity,pricePerNight:rate,status:'active'}))}}><h2>Add unit</h2><select required value={propertyId} onChange={e=>setPropertyId(e.target.value)}><option value="">Choose property</option>{properties.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input required value={unitName} onChange={e=>setUnitName(e.target.value)} placeholder="Room or unit name"/><input required type="number" min="1" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/><input required type="number" min="1" value={rate} onChange={e=>setRate(Number(e.target.value))}/><button>Create unit</button></form></section><h2>Your properties</h2><div className="grid">{properties.data?.map(p=><article className="card" key={p.id}><h3>{p.name}</h3><p>{p.city}, {p.address}</p><p>{p.units?.length||0} units</p></article>)}</div><h2>Booking requests</h2><div className="grid">{bookings.data?.map(b=><article className="card" key={b.id}><h3>{b.unit?.property.name}</h3><p>{b.checkIn.slice(0,10)} to {b.checkOut.slice(0,10)}</p><strong>{b.status} · ${b.totalPrice}</strong></article>)}</div><small>Booking approval, cancellation, payments and payouts are not yet available. Never treat a pending request as paid.</small></>}</>}{notice&&<p role="status">{notice}</p>}</main></>}
-export default function App(){return <QueryClientProvider client={qc}><Owner/></QueryClientProvider>}
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
+import { AppProvider } from './context/AppContext';
+import { Header } from './components/Header';
+import { AuthForm } from './components/AuthForm';
+import { DashboardPage } from './pages/DashboardPage';
+import { LoginPage } from './pages/LoginPage';
+import { useOwnerAuth } from './hooks/useOwner';
+import './styles.css';
+
+// Lazy-loaded pages for code splitting
+const DashboardPageLazy = lazy(() => import('./pages/DashboardPage'));
+const LoginPageLazy = lazy(() => import('./pages/LoginPage'));
+
+function LoadingFallback() {
+  return <div className="loading">Loading…</div>;
+}
+
+function OwnerApp() {
+  const { token, logout } = useOwnerAuth();
+
+  return (
+    <>
+      <Header onSignOut={logout} />
+      <main>
+        <span className="tag">OWNER WORKSPACE</span>
+        <h1>Your place. Your business.</h1>
+        <p>List properties, manage room rates and review incoming requests.</p>
+        {!token && <AuthForm />}
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/login" element={<LoginPageLazy />} />
+            <Route path="/" element={<DashboardPageLazy />} />
+          </Routes>
+        </Suspense>
+      </main>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <OwnerApp />
+      </BrowserRouter>
+    </AppProvider>
+  );
+}

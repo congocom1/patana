@@ -1,0 +1,42 @@
+# Shared Packages Audit Report
+
+**Repository:** patana (monorepo)
+**Audit Date:** 2025-10-22
+**Scope:** packages/types, packages/ui, packages/theme, packages/validation, packages/api-client
+**Total Source Lines:** 175 across 5 packages
+
+---
+
+## Executive Summary
+
+| Package | Lines | Status | Critical Issues |
+|---------|-------|--------|-----------------|
+| @patana/types | 148 | Incomplete | Missing API response types, no versioning strategy |
+| @patana/ui | 1 | Placeholder | Only re-exports React, no components |
+| @patana/theme | 1 | Placeholder | Only 3 color tokens, no design system |
+| @patana/validation | 3 | Minimal | Only 2 schemas, no integration with types |
+| @patana/api-client | 22 | Duplicates types | Re-declares types from @patana/types, no React Query integration |
+
+**Overall Assessment:** The shared packages are in early scaffold state — minimal implementations with significant gaps in completeness, TypeScript configuration, testing, documentation, and publishing readiness.
+
+---
+
+## Findings Table
+
+| Severity | Package:File:Line | Description | Recommendation |
+|----------|-------------------|-------------|----------------|
+| Critical | packages/api-client/src/index.ts:2-3 | Type duplication: Session and Booking types re-declared inline instead of importing from @patana/types. Creates maintenance burden and drift risk. | Import Session, Booking from @patana/types. Remove inline declarations. |
+| Critical | packages/api-client/src/index.ts:1 | Partial import: Only imports Stay from @patana/types but defines Session, Booking locally. Inconsistent usage. | Import all needed types from @patana/types: Session, Booking, Stay, OwnerBooking, OwnerProfile, etc. |
+| Critical | packages/types/src/index.ts | Missing API response types: No types for paginated responses, error responses, or API-specific DTOs. | Add generic ApiResponse<T>, PaginatedResponse<T>, ApiError types. Export all request/response DTOs. |
+| Critical | packages/ui/package.json:8-10 | Empty component library: Only dependency is react, exports only React default. No components, hooks, or utilities. | Either implement component library or remove package. If keeping, add base components (Button, Input, Card, etc.) with proper props typing. |
+| Critical | packages/theme/src/index.ts:1 | Incomplete design tokens: Only 3 colors (brand, ink, background). No spacing, typography, radii, shadows, breakpoints, z-indices, or semantic tokens. | Expand to full design token set: spacing scale, type scale, border radius, shadows, breakpoints, motion tokens, semantic color aliases (primary, secondary, success, warning, error, surface, etc.). |
+| Critical | packages/validation/src/index.ts | No type derivation from Zod: Schemas dont export inferred types. Consumers must duplicate types. | Export inferred types: export type SearchQuery = z.infer<typeof searchQuerySchema>; same for booking. |
+| Critical | packages/validation/src/index.ts:2-3 | Validation gaps: No schemas for auth (login/register), property/unit creation, owner registration, payment intent. Only 2 of 10+ API operations covered. | Add schemas for all API request bodies matching @patana/types request interfaces. |
+| High | All packages: package.json | No TypeScript configuration: No tsconfig.json in any package. Relies on app-level tsconfig.base.json via extends. Packages cannot be type-checked independently. | Add tsconfig.json to each package with composite: true, declaration: true, declarationMap: true, outDir: dist. Enable project references. |
+| High | All packages: package.json | No build output: main and types point to ./src/index.ts (source). No dist/ output, no build scripts. Not publishable to npm. | Add build script (tsc or bundler). Output to dist/ with .d.ts, .js (ESM + CJS). Add exports field with proper conditions. |
+| High | All packages: package.json:4 | All packages private: true: Cannot be published to npm registry. Version locked at 0.1.0 for all. No versioning strategy. | Decide publishing strategy: (a) keep private with workspace protocol, (b) publish to private registry, (c) publish to npm. If (b)/(c), set private: false, add publishConfig, automate versioning (changesets). |
+| High | packages/api-client/src/index.ts:5 | Hardcoded fallback URL couples to Vite/env. Not portable to other build tools (Next.js, etc.). | Accept baseUrl as required constructor arg. Provide factory helper for Vite env. Document required env var. |
+| High | packages/api-client/src/index.ts:6-9 | No React Query integration: Raw fetch wrapper. No caching, deduping, retries, invalidation, or optimistic updates. Apps must wrap manually. | Add React Query hooks: useStays(city), useLogin(), useBook(), useMyBookings(), etc. Export queryKeys for invalidation. |
+| High | packages/api-client/src/index.ts:8 | Weak error handling: Throws generic Error with string message. No typed error classes, no status code access, no retry logic. | Create ApiError class with status, code, data. Distinguish auth errors (401), validation (400), not found (404), server (5xx). |
+| High | packages/types/src/index.ts:48-53 | Inconsistent optional chaining: Booking.unit is optional but nested unit.property is required. | Make unit?: { name: string; property: { name: string; city: string } } -> unit?: Unit & { property: Pick<Stay, name | city> } or use UnitWithProperty type. |
+| High | packages/types/src/index.ts:130 | String date fields: checkIn, checkOut are string not Date. No format enforcement (ISO 8601?). Validation uses z.string().date() but types dont reflect. | Use string with branded type type ISODate = string & { __brand: ISODate } or document ISO 8601 requirement. Consider Date in domain, serialize at boundary. |
